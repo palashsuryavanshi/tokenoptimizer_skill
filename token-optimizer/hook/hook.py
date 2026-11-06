@@ -135,6 +135,7 @@ class SessionTracker:
             "thresholds_crossed": sorted(self._thresholds_crossed),
             "stale_files": self.stale_files(),
             "file_last_seen": self._file_last_seen,
+            "turns": self._turns,
         }
 
 
@@ -275,5 +276,10 @@ class Daemon:
         
         elif msg_type == "ping":
             return {"status": "pong"}
+        
+        elif msg_type == "shutdown":
+            # Signal the daemon to stop
+            threading.Thread(target=self.stop, daemon=True).start()
+            return {"status": "ok"}
         
         return {"error": f"unknown message type: {msg_type}"}
