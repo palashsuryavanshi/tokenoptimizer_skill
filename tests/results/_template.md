@@ -5,14 +5,15 @@
 
 ## Verbatim output
 
-```text
+````text
 <paste the complete, unedited assistant response here, before summarising it>
-```
+````
 
 ## Metrics and verdict
 
 - **Output words:** 
 - **Chars:** 
+- **Characters pulled into context:** 
 - **Files read:**
   - 
 - **Duplicate reads:**
