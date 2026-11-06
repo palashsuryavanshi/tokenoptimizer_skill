@@ -1,60 +1,262 @@
-# Token Optimizer — Agent Skill
+# Token Optimizer Extension
 
-A portable agent skill that lowers token usage per turn by shaping both output style and context habits — without reducing answer quality.
+> Session tracking daemon + shell shims + CI token gate for AI coding agents
 
-## What It Does
+The core [`token-optimizer` skill](https://github.com/palashsuryavanshi/tokenoptimizer_skill/blob/main/.opencode/skill/token_optimizer.md) (590 words, portable Markdown) reduces token usage by ~25% with blind quality gates. This extension adds:
 
-When loaded, the skill guides the agent to:
+- **Daemon** (`hook.py`) — Session tracking, threshold warnings, stale file detection, JSONL persistence
+- **Shell shims** (`shim.sh`, `shim.fish`) — Wrap `opencode`, `claude`, `codex`, `aider`, `gemini` to auto-report token usage
+- **TUI dashboard** (`tui.py`) — Real-time session view with turn breakdown and stale files
+- **CLI** (`token-optimizer`) — `daemon`, `session`, `config`, `scan`, `tui` subcommands
+- **CI gate** (`scan.py`) — Scans PRs for verbose patterns that waste tokens
 
-- **Answer first** — open with the result, then only the detail needed to act on it. No preamble, no recap, no unrequested summaries.
-- **Work cheap** — locate before loading, read slices not whole files, cite `path:line` instead of pasting content, filter output at the source, use scratch files for repeated state, delegate broad exploration to subagents.
-- **Never cut** — correctness, working code, tests and their output, required caveats, safety confirmations, and anything explicitly asked for are never trimmed.
-- **Escalate** — full detail when the user asks for an explanation, when the action is risky or irreversible, when ambiguity would cause rework, or when the reasoning is the deliverable.
+---
 
-## Verified Results
-
-| Scenario | Baseline | With Skill | Quality |
-|----------|----------|------------|---------|
-| Explanation | 1,657 words | 787 words | Baseline better (disclosed) |
-| Bug hunt | 107 words | 133 words | **Skill better** |
-| Long session | 368 words | 527 words | **Skill better** |
-| Escalation task | 915 words | 846 words | **Skill better** |
-
-Overall output reduction: **~25%** (3,047 → 2,293 words) on a planted-bug fixture with blind quality gates. The skill was developed TDD-style: RED baseline → GREEN (three rounds, two failures) → REFACTOR → final gate.
-
-## Install
-
-Copy the `token-optimizer/` folder into your agent's skills directory:
+## Quick Start
 
 ```bash
-# OpenCode / cross-runtime
-cp -r token-optimizer ~/.agents/skills/
+# One-line install (Linux/macOS/WSL)
+curl -fsSL https://raw.githubusercontent.com/palashsuryavanshi/tokenoptimizer_skill/main/install.sh | bash
 
-# Claude Code (also works)
-cp -r token-optimizer ~/.claude/skills/
+# Restart shell
+exec $SHELL
+
+# Start daemon
+token-optimizer daemon start
+
+# Use wrapped agents (auto-reports token usage)
+opencode "refactor the billing module"
+claude "add tests for auth"
+codex "optimize database queries"
+
+# View session
+token-optimizer session summary
+
+# Launch TUI dashboard
+token-optimizer tui
 ```
 
-Or add this line to a project's instructions file for guaranteed always-on:
+---
+
+## Architecture
 
 ```
-# Load the token-optimizer skill at session start
-skill: token-optimizer
+┌─────────────────────────────────────────────────────────────┐
+│                        User Shell                           │
+│  opencode | claude | codex | aider | gemini (aliased)       │
+└──────────────────────────┬──────────────────────────────────┘
+                           │ wrap_agent() estimates tokens
+                           ▼
+┌─────────────────────────────────────────────────────────────┐
+│                    Unix Socket / TCP                        │
+│  {type:"turn", turn:1, input:5000, output:2000, ...}       │
+└──────────────────────────┬──────────────────────────────────┘
+                           ▼
+┌─────────────────────────────────────────────────────────────┐
+│                      token-optimizer daemon                 │
+│  • SessionTracker: turns, tokens, sources, thresholds       │
+│  • JSONL persistence: ~/.local/share/token-optimizer/sessions/
+│  • Threshold warnings at 60%, 80%, 95% context window       │
+│  • Stale file detection (not seen in last N turns)          │
+└──────────────────────────┬──────────────────────────────────┘
+                           │
+           ┌───────────────┼───────────────┐
+           ▼               ▼               ▼
+    ┌─────────────┐ ┌─────────────┐ ┌─────────────┐
+    │ token-optimizer    │ token-optimizer │ GitHub Action │
+    │ session     │ │ scan        │ │ (CI gate)   │
+    │ summary   │ │ --severity  │ │ .github/    │
+    │ tui       │ │ warning     │ │ workflows   │
+    └─────────────┘ └─────────────┘ └─────────────┘
 ```
 
-## Structure
+---
 
+## Commands Reference
+
+### Daemon Management
+```bash
+token-optimizer daemon start      # Start background daemon
+token-optimizer daemon stop       # Stop daemon
+token-optimizer daemon status     # Check if running
 ```
-token-optimizer/
-├── SKILL.md                          # Main skill (590 words)
-└── references/
-    └── auditing-token-use.md         # On-demand audit reference (126 lines)
+
+### Session Inspection
+```bash
+token-optimizer session summary   # Current session totals + thresholds
+token-optimizer session turns     # Turn-by-turn breakdown
+token-optimizer session stale     # Files not seen in last N turns
+token-optimizer session list      # All saved sessions
+token-optimizer session show ID   # Full session details
+token-optimizer session clear     # Reset current session
 ```
 
-## Requirements
+### Configuration
+```bash
+token-optimizer config show       # View current settings
+token-optimizer config set KEY VALUE
+token-optimizer config reset      # Restore defaults
+token-optimizer config scaffold   # Generate default config.yaml
+```
 
-- Plain Markdown — no hooks, plugins, MCP config, or agent-specific syntax
-- Works with OpenCode, Claude Code, Codex, and any agent that loads skills by description
+Config keys:
+| Key | Example |
+|-----|---------|
+| `thresholds` | `0.6,0.8,0.95` |
+| `stale_turns` | `5` |
+| `hotkey` | `C-t` |
+| `daemon_socket` | `~/.local/share/token-optimizer/daemon.sock` |
+| `session_dir` | `~/.local/share/token-optimizer/sessions/` |
+| `model_context_window` | `claude-3-5-sonnet=200000` |
+
+### CI Gate (Token Scan)
+```bash
+# Scan for verbose patterns
+token-optimizer scan                    # Current dir, warning+
+token-optimizer scan --severity error  # Only errors
+token-optimizer scan --output json     # Machine-readable
+token-optimizer scan --output github   # GitHub Actions annotations
+```
+
+Patterns detected:
+- Explanatory preambles ("Here is the code...", "Below are the changes...")
+- Apologetic language ("Sorry, unfortunately...")
+- Hedging ("I think, maybe, perhaps...")
+- Redundant confirmations ("As requested, per your instruction...")
+- Excessive markdown formatting for minimal content
+
+### TUI Dashboard
+```bash
+token-optimizer tui
+```
+Real-time dashboard with:
+- Session summary with progress bar
+- Turn-by-turn table
+- Stale files list
+- Sessions browser
+- Config viewer
+
+---
+
+## Shell Shims
+
+The install script adds shims to your shell RC file:
+
+**bash/zsh** (`~/.bashrc` / `~/.zshrc`):
+```bash
+source ~/.local/share/token-optimizer/shim.sh
+```
+
+**fish** (`~/.config/fish/config.fish`):
+```fish
+source ~/.local/share/token-optimizer/shim.fish
+```
+
+This aliases:
+```bash
+opencode → wrap_agent opencode
+claude   → wrap_agent claude
+codex    → wrap_agent codex
+aider    → wrap_agent aider
+gemini   → wrap_agent gemini
+```
+
+Manual control:
+```bash
+token_optimizer_daemon_start
+token_optimizer_daemon_stop
+token_optimizer_daemon_status
+token_optimizer_tui
+```
+
+---
+
+## Configuration
+
+Default config (`~/.config/token-optimizer/config.yaml`):
+
+```yaml
+model_context_windows:
+  claude-3-5-sonnet: 200000
+  gpt-4o: 128000
+  gpt-4-turbo: 128000
+  default: 128000
+
+thresholds: [0.6, 0.8, 0.95]
+stale_turns: 5
+hotkey: "C-t"
+daemon_socket: "~/.local/share/token-optimizer/daemon.sock"
+session_dir: "~/.local/share/token-optimizer/sessions/"
+```
+
+On Windows, the daemon uses TCP (port derived from socket path hash) since Unix sockets aren't available.
+
+---
+
+## CI Integration
+
+Add to `.github/workflows/ci.yml`:
+
+```yaml
+- name: Token Optimizer Scan
+  run: |
+    pip install -e ./token-optimizer/hook
+    token-optimizer scan --severity warning --output github
+```
+
+Or use the provided workflow at `.github/workflows/token-optimizer.yml` which:
+- Runs scan on every PR
+- Comments results on PR
+- Runs test suite
+
+Pre-commit hook (`.pre-commit-config.yaml`):
+```yaml
+- repo: local
+  hooks:
+    - id: token-optimizer-scan
+      entry: token-optimizer scan --severity warning
+      language: system
+```
+
+---
+
+## Uninstall
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/palashsuryavanshi/tokenoptimizer_skill/main/uninstall.sh | bash
+```
+
+Removes:
+- Python package (`pip uninstall token-optimizer-hook`)
+- Shell shims from RC files
+- `~/.local/share/token-optimizer/`
+- `~/.config/token-optimizer/` (optional)
+- `~/.local/bin/token-optimizer`
+
+---
+
+## Development
+
+```bash
+# Clone
+git clone https://github.com/palashsuryavanshi/tokenoptimizer_skill
+cd tokenoptimizer_skill
+
+# Install editable
+pip install -e ./token-optimizer/hook[dev]
+
+# Run tests
+python -m pytest tests/hook/ -v
+
+# Run scan locally
+token-optimizer scan --severity info
+
+# Launch TUI
+token-optimizer tui
+```
+
+---
 
 ## License
 
-MIT — use freely in any project.
+MIT — see [LICENSE](LICENSE)
