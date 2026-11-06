@@ -29,33 +29,38 @@ An item you cannot answer "yes" to after the task is where the spend went.
 ## Measuring a session
 
 Capture the same five numbers for a baseline run and a skill run of the same task.
-Record them in a scratch file, one row per run — not in the conversation.
+Record them in a scratch file, one row per run — not in the conversation. The figures
+are comparable only if both runs count them the same way.
 
 | Metric | How to count | Look for |
 | --- | --- | --- |
-| Output words | Assistant prose only; exclude code, tables, test output | Lower, with the answer intact |
-| Files read | Distinct paths opened | Fewer, each justified by the task |
-| Duplicate reads | Paths opened again with no change in between | Zero |
-| Context pulled | Characters of file and tool output returned, summed | Smaller slices |
+| Output words | `scripts/measure.ps1` on the saved response: every whitespace-separated token, the four-backtick wrapper included | Lower, with the answer intact |
+| Output chars | Same script, same file: every character in the saved response, wrapper included | Lower, with the answer intact |
+| Files read | Distinct repository source files the subject reports inspecting; exclude the skill file, result files, directory listings, and generated `__pycache__`/`.pyc` files | Fewer, each justified by the task |
+| Duplicate reads | Repository files opened more than once without need, as reported; exclude imports, test runs, newly created test files, and a re-read the user asked for | Lower; zero is the aim, not the bar |
 | Follow-ups | User messages needed to get the answer | Not higher than baseline |
 
 Method:
 
-1. Run the task on a fresh agent without the skill; keep the transcript.
-2. Run the same task on a fresh agent with the skill; keep the transcript.
-3. Count each metric from the transcripts, not from memory.
+1. Run the task on a fresh agent without the skill and save its response verbatim.
+2. Run it again on a fresh agent with the skill; save that response the same way.
+3. Measure words and characters on both saved files with `scripts/measure.ps1`, so
+   the wrapper is counted in each. Files read, duplicates, and follow-ups are
+   self-reported telemetry from the run, not derived from the prose — label them as
+   such when you report them.
 4. Compare answers for correctness and completeness before comparing cost. A cheaper
    answer that misses the fix is a loss, not a saving.
 5. Write both rows and the verdict to the scratch file, then cite it in the report.
 
 Duplicate reads and follow-ups are the tell. Duplicate reads mean files are not being
 kept in context. Rising follow-ups mean the answer was cut too far — check `SKILL.md`
-→ Never cut and Escalate before trimming anything else.
+→ Never cut and Escalate before trimming anything else. Judge the trend, not one run:
+the accepted project baseline still carried 7 duplicate reads at 3-of-4 green.
 
 ## When spend is still high
 
 Work the levers in this order. Stop as soon as the number is acceptable; each lever
-costs more quality than the one after it.
+costs more quality than the one before it.
 
 ### 1. Context
 

@@ -8,7 +8,7 @@ Three lines for a project instructions file (`AGENTS.md`, `CLAUDE.md`, or simila
 
 ```text
 At the start of every session, load the token-optimizer skill.
-It is installed at ~/.agents/skills/token-optimizer/SKILL.md; follow it for the session.
+It is installed at ~/.agents/skills/token-optimizer/SKILL.md (Windows: C:\Users\oggyt\.agents\skills\token-optimizer\SKILL.md); follow it for the session.
 Read its references/auditing-token-use.md only when measuring or auditing token use.
 ```
 
