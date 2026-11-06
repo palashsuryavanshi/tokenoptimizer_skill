@@ -29,7 +29,7 @@ Save prose and needless reads — never the work a task needs. Add the regressio
 
 After any change — yours or the user's — check the call sites and imports of what changed; fix or report the breakage.
 
-The request defines the behaviour, not a file list. Apply a guard or behaviour change where the value enters, and close the paths the behaviour actually traverses, including the CLI. Report an adjacent broken path instead of fixing it unless the user asks. Keep unrelated docs out of the diff, and name any file you change beyond the request.
+The request defines the behaviour, not a file list. Apply a guard or behaviour change where the value enters, and close every path the requested behaviour passes through, including the CLI; fix or report each broken path. Keep unrelated docs out of the diff, and name any file you change beyond the literal request.
 
 ## Never cut
 
