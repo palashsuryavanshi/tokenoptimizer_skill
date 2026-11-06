@@ -1,4 +1,17 @@
+# Token Optimizer — build and test artifacts
+
+# SDD workspace (gitignored at .superpowers/sdd/.gitignore, but be explicit)
 .superpowers/
+
+# Python
 __pycache__/
 *.pyc
 .pytest_cache/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode/
+.idea/
