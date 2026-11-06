@@ -11,12 +11,13 @@ if (-not (Test-Path -LiteralPath $Path -PathType Leaf)) {
     exit 1
 }
 
-$text = Get-Content -LiteralPath $Path -Raw
+$text = Get-Content -LiteralPath $Path -Raw -Encoding UTF8
 if ($null -eq $text) {
     $text = ''
 }
 
 $words = @($text -split '\s+' | Where-Object { $_ -ne '' }).Count
+# chars counts UTF-16 code units after UTF-8 decoding, so astral characters (surrogate pairs) count as 2.
 $chars = $text.Length
 
 Write-Output "words=$words chars=$chars"
