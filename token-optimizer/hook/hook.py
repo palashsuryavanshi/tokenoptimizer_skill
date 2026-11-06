@@ -36,9 +36,16 @@ class Config:
         with open(path, "r") as f:
             data = yaml.safe_load(f)
         
+        # Custom expanduser that respects HOME env var (Windows compatibility)
+        def expand_user(path_str: str) -> str:
+            if path_str.startswith("~"):
+                home = os.environ.get("HOME") or os.environ.get("USERPROFILE") or os.path.expanduser("~")
+                return path_str.replace("~", home, 1)
+            return path_str
+        
         # Expand user paths
-        data["daemon_socket"] = os.path.expanduser(data["daemon_socket"])
-        data["session_dir"] = os.path.expanduser(data["session_dir"])
+        data["daemon_socket"] = expand_user(data["daemon_socket"])
+        data["session_dir"] = expand_user(data["session_dir"])
         
         # Validate thresholds
         for t in data["thresholds"]:
@@ -170,13 +177,25 @@ class Daemon:
             self.server_socket = socket.socket(AF_UNIX, socket.SOCK_STREAM)
             self.server_socket.bind(self.socket_path)
         else:
-            # Windows: use TCP on localhost with a fixed port derived from socket path
-            import hashlib
-            port_hash = int(hashlib.md5(self.socket_path.encode()).hexdigest(), 16) % 10000 + 20000
-            self.socket_path = f"127.0.0.1:{port_hash}"
+            # Windows: use TCP on localhost
+            # If socket_path is already a TCP address (set by test), use it directly
+            # Otherwise compute port hash from original Unix socket path
+            if self.socket_path.startswith("127.0.0.1:") or (":" in self.socket_path and not self.socket_path.startswith("~")):
+                parts = self.socket_path.split(":", 1)
+                if len(parts) == 2 and "/" not in parts[1] and "\\" not in parts[1]:
+                    host, port = parts
+                else:
+                    import hashlib
+                    port_hash = int(hashlib.md5(self.socket_path.encode()).hexdigest(), 16) % 10000 + 20000
+                    host, port = "127.0.0.1", port_hash
+            else:
+                import hashlib
+                port_hash = int(hashlib.md5(self.socket_path.encode()).hexdigest(), 16) % 10000 + 20000
+                host, port = "127.0.0.1", port_hash
+            
+            self.socket_path = f"{host}:{port}"
             self.server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
             self.server_socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-            host, port = self.socket_path.split(":")
             self.server_socket.bind((host, int(port)))
         
         self.server_socket.listen(5)
@@ -258,6 +277,13 @@ class Daemon:
                 output_tokens=msg.get("output", 0),
                 sources=msg.get("sources", {})
             )
+            
+            # Check thresholds after logging turn
+            if self.config:
+                newly_crossed = self.tracker.check_thresholds(self.config.thresholds)
+                if newly_crossed:
+                    return {"status": "ok", "thresholds_crossed": newly_crossed}
+            
             return {"status": "ok"}
         
         elif msg_type == "query":
@@ -280,6 +306,11 @@ class Daemon:
         elif msg_type == "shutdown":
             # Signal the daemon to stop
             threading.Thread(target=self.stop, daemon=True).start()
+            return {"status": "ok"}
+        
+        elif msg_type == "clear":
+            # Clear current session
+            self.tracker = None
             return {"status": "ok"}
         
         return {"error": f"unknown message type: {msg_type}"}
