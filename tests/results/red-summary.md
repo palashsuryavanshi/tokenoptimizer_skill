@@ -21,17 +21,18 @@ tests\results\red-04.md words=915 chars=6128
 The measured files include their four-backtick wrapper. "Files read" is the
 number of distinct repository files the subject reported inspecting; scratch and
 result files are excluded. "Duplicate reads" counts repository files the subject
-reported opening more than once by explicit inspection (imports and test runs
-excluded). Telemetry is self-reported and is not a complete transcript; claims
+reported opening more than once *unnecessarily* by explicit inspection; imports,
+test runs, scratch/result files, and scenario 3's user-mandated re-read are
+excluded. Telemetry is self-reported and is not a complete transcript; claims
 that could be checked against the recorded response were checked.
 
 ## Metrics
 
 | Scenario | Output words | Output chars | Files read (repo) | Duplicate reads | Follow-ups | Quality verdict |
 | --- | ---: | ---: | ---: | ---: | ---: | --- |
-| 01 explanation | 1657 | 11215 | 11 | 7 | 1 | Correct and complete, but grossly overlong; duplicate reads, echoed code, unrequested recap |
-| 02 bug hunt | 107 | 713 | 10 | 6 | 1 | Correct root cause and fix on its face; concise, but unrequested docs edits and no business-impact warning |
-| 03 long session | 368 | 2824 | 10 | 1 | 1 | Partially correct: re-read behaviour right, but function-name/`AttributeError` claim is not verifiable from the committed fixture |
+| 01 explanation | 1657 | 11215 | 11 | 6 | 1 | Correct and complete, but grossly overlong; duplicate reads, echoed code, unrequested recap |
+| 02 bug hunt | 107 | 713 | 10 | 4 | 1 | Correct root cause and fix on its face; concise, but unrequested docs edits and no business-impact warning |
+| 03 long session | 368 | 2824 | 10 | 0 | 1 | Correct for the temp copy (re-read and `AttributeError` catch); only defect is calling the `main.py` mismatch "pre-existing" |
 | 04 escalation | 915 | 6128 | 10 | 1 | 1 | Mostly correct and keeps the walkthrough, but misses the risk/back-compat warning and guesses the boundary without asking |
 
 Each subject received one follow-up (the telemetry request); no other
@@ -92,8 +93,12 @@ Scenario 2 telemetry:
 
 > Opened more than once: `repro.py` (read + 3 executions), `app/billing.py` (2 reads + grep + 2 edits), `tests/test_billing.py` (read + edit), `docs/changelog.md` (read + **edit**), `red-02-body.txt`, `results/red-02.md`.
 
+The quoted lists include scratch/result entries; after excluding those, the
+table counts are 6 (scenario 1) and 4 (scenario 2).
+
 Scenario 3's second read of `reports.py` is **not** counted here: the user's
-"I edited `reports.py`" notice made re-reading the correct behaviour.
+"I edited `reports.py`" notice made re-reading the correct behaviour. That is
+why its duplicate-read count in the table is 0.
 
 ### Unnecessary file edits — observed
 
@@ -206,7 +211,7 @@ the behaviour change.
   `invoice_total` recomputes the subtotal inline, `summary` ignores
   `--tax-rate`, and the discount/validation call paths are as described.
 - **Complete:** yes; arguably too complete.
-- **Regressions:** 1657 words / 11215 chars, seven duplicate file reads, source
+- **Regressions:** 1657 words / 11215 chars, six duplicate file reads, source
   pasted back, and unrequested `Practical rules` + `Glossary` sections. The
   answer is correct, but it is not a token saving. A shorter version would only
   be an improvement if it kept the explanation; this baseline shows how much
@@ -227,17 +232,16 @@ the behaviour change.
 ### Scenario 3 — long session
 
 - **Correct:** sections 1 and 2 match the committed fixture (pipeline stages and
-  all five helpers). Section 3 is the problem: the response calls the function
-  `export_csv_rows`, while the committed `app/reports.py` defines `csv_rows`. The
-  user's mid-task edit could explain the rename, but the response then calls the
-  resulting `main.py` mismatch "pre-existing" even though the edit would have
-  introduced it. No diff or output substantiates the rename.
-- **Complete:** it answers all three asks and claims the change, but the change
-  is not verifiable from the recording.
-- **Regressions:** wrong/unverifiable function naming, a false or mislabelled
-  `AttributeError` claim, and an unrequested unrelated-issue paragraph. The
-  re-read itself was the right behaviour. Verdict: partially correct; not safe
-  to treat as a clean baseline success.
+  all five helpers). In the temporary copy produced by the user's mid-task edit,
+  `export_csv_rows` is the correct function name, and `app/main.py` calling
+  `reports.csv_rows` would indeed raise `AttributeError`. The re-read caught that
+  real mismatch. The only genuine defect is the response calling the mismatch
+  "pre-existing" when the user's edit introduced it.
+- **Complete:** it answers all three asks and renames the CSV header and row key
+  in the temp copy.
+- **Regressions:** the mislabelled "pre-existing" status is the one real issue;
+  the unrelated-issue paragraph is accurate for the temp copy. Verdict: correct
+  and complete for the edited copy, with one misleading attribution.
 
 ### Scenario 4 — escalation
 
@@ -253,11 +257,11 @@ the behaviour change.
 
 ## Bottom line
 
-The baseline is not uniformly bad: scenarios 1, 2 and 4 are substantively
-correct, and the scenario 3 re-read is the desired behaviour. The token problem
-is real in scenario 1 (1657 words, 11 repo files, 7 duplicate reads), and the
-behavioural problems are real in scenarios 2–4: unnecessary documentation edits,
-a missing destructive-change warning, a guessed boundary with no escalation, and
-one unverifiable/incorrect claim in scenario 3. Conciseness alone would not fix
-those; the skill must preserve correctness while cutting preamble, recap,
+The baseline is not uniformly bad: scenarios 1–4 are substantively correct, and
+the scenario 3 re-read is the desired behaviour. The token problem is real in
+scenario 1 (1657 words, 11 repo files, 6 duplicate reads), and the behavioural
+problems are real in scenarios 2–4: unnecessary documentation edits, a missing
+destructive-change warning, a guessed boundary with no escalation, and one
+misleading "pre-existing" attribution in scenario 3. Conciseness alone would not
+fix those; the skill must preserve correctness while cutting preamble, recap,
 echoed source, duplicate reads and scope creep.
