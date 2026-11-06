@@ -21,7 +21,7 @@ Save prose and needless reads — never the work a task needs. Add the regressio
 - Search locates; it does not answer. If the answer depends on how a file is used — exports, call sites, side effects — read it.
 - Read once. Keep a file already in context; re-read only after it changed.
 - Cite `path:line` instead of pasting file contents, diffs, or tool output into prose.
-- Filter long output at the source — `head`, `tail`, `grep`, one targeted test — rather than pulling it all in.
+- Filter long output at the source: request only needed lines or fields, or run one targeted test.
 - Edit the lines that need changing; rewrite a file only when the change is structural.
 - Put findings, plans, and repeated state in a scratch file instead of restating them each turn.
 - Give broad exploration to a subagent so its reading stays out of context.

@@ -1,6 +1,7 @@
 # GREEN summary — final skill (round 3)
 
-Verification of the final `token-optimizer/SKILL.md` (581 words) against the RED
+Verification of the final `token-optimizer/SKILL.md` (578 words after the
+portability edit; 581 at green-run time) against the RED
 baseline. Round 3 is the run that counts; rounds 1 and 2 are recorded below for
 the gate history. No scenario was re-run for this summary.
 
@@ -17,11 +18,14 @@ tests\results\green3-03.md words=376 chars=3051
 tests\results\green3-04.md words=647 chars=4745
 ```
 
-Files read counts distinct repository files the subject reported inspecting;
-scratch and result files are excluded. Duplicate reads counts repository files
-opened more than once unnecessarily by explicit inspection; imports, test runs,
-newly created test files, and scenario 3's user-mandated re-read of `reports.py`
-are excluded. Telemetry is self-reported.
+Files read counts distinct repository source files the subject reported
+inspecting. Excluded: the skill file, result files, directory listings, and
+generated `__pycache__`/`.pyc` artifacts. The fixture contains 11 source files;
+scenario 01's telemetry says "all 12" but names 10 and adds "directory listings",
+so the count is 11 (the fixture total, consistent with "all"), not 12. Duplicate
+reads counts repository files opened more than once unnecessarily by explicit
+inspection; imports, test runs, newly created test files, and scenario 3's
+user-mandated re-read of `reports.py` are excluded. Telemetry is self-reported.
 
 Wrapper note: `gate-round3.md` quotes 783/105/374/645 and a 1907 total. Those
 figures omit the two four-backtick wrapper tokens per file (8 in total). RED's
@@ -32,21 +36,22 @@ percentage saving is 37% either way.
 
 | Scenario | Output words | Δ words | Output chars | Files read | Δ files | Duplicate reads | Δ dups | Follow-ups | Quality verdict |
 | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | --- |
-| 01 explanation | 785 | −872 | 5698 | 12 | +1 | 0 | −6 | 1 | Red better (narrow); accepted by ruling |
+| 01 explanation | 785 | −872 | 5698 | 11 | 0 | 0 | −6 | 1 | Red better (narrow); accepted by ruling |
 | 02 bug hunt | 107 | 0 | 841 | 11 | +1 | 4 | 0 | 1 | **Green better** |
 | 03 long session | 376 | +8 | 3051 | 5 | −5 | 1 | +1 | 1 | **Green better** |
 | 04 escalation | 647 | −268 | 4745 | 10 | 0 | 2 | +1 | 1 | **Green better** (narrow) |
-| **Total** | **1915** | **−1132** | **14335** | **38** | **−3** | **7** | **−4** | **4** | 3 of 4 green |
+| **Total** | **1915** | **−1132** | **14335** | **37** | **−4** | **7** | **−4** | **4** | 3 of 4 green |
 
 Against RED: 3047 words / 20880 chars / 41 files / 11 duplicate reads. Overall
 output saving is 1132 words (−37.2%) and 6545 chars (−31.3%).
 
 ## Where the skill does not save
 
-- **Scenario 01 — input-context regression.** The final run read 12 repo files
-  against RED's 11 because the "whole path" explanation rule re-opened everything.
-  Duplicate reads fell from 6 to 0, but the first-read volume rose. The 52.6%
-  output saving here is not an input saving.
+- **Scenario 01 — input context neutral, not a regression.** The final run read
+  11 repo files, the same as RED. Telemetry's "all 12" is off by one: it names 10
+  files and adds "directory listings", while the fixture holds 11 source files.
+  Duplicate reads fell from 6 to 0. The 52.6% output saving here is still not an
+  input saving.
 - **Scenario 02 — word-neutral.** 107 words before and after; the win is quality
   (regression test and before/after evidence), not length. It read one more repo
   file than RED (11 vs 10).
@@ -60,9 +65,9 @@ output saving is 1132 words (−37.2%) and 6545 chars (−31.3%).
   duplicates rose from 1 to 2 (`app/billing.py` three reads, `app/main.py` two)
   while output fell 29.3%.
 
-No context regression is hidden: files read improved overall (41 → 38) and
-duplicates improved (11 → 7), but the improvement is concentrated in scenarios
-03 and 01 respectively, not uniform.
+No context regression is hidden: files read improved overall (41 → 37) and
+duplicates improved (11 → 7), but the improvement is concentrated in scenario
+03's five-file drop and scenario 01's duplicate-read drop, not uniform.
 
 ## Quality verdicts (gate-round3.md)
 
@@ -113,11 +118,12 @@ CLI exit code. Code verified: `command_summary` now passes `args.tax_rate` to
 the three tasks where earlier rounds were cutting substance (02, 03, 04), with
 the code changes independently re-verified. Overall output falls from 3047 to
 1915 words (−37%) and 20880 to 14335 chars (−31%), while duplicate reads fall
-from 11 to 7 and files read from 41 to 38. The one quality loss is a narrow,
+from 11 to 7 and files read from 41 to 37. The one quality loss is a narrow,
 ruled-on depth gap, not a wrong or incomplete answer.
 
 **Does not prove:** a saving on short tasks — scenario 02 is word-neutral at 107
 words. It does not prove an input-context saving on explanation tasks — scenario
-01 reads 12 files against RED's 11. Scenario 03 is slightly longer (+8 words) and
-adds one duplicate open, so the win there is quality and fewer first reads, not
-prose. Telemetry is self-reported, and the summary compares one run per scenario.
+01 reads 11 files, the same as RED, so its saving is output only. Scenario 03 is
+slightly longer (+8 words) and adds one duplicate open, so the win there is
+quality and fewer first reads, not prose. Scenario 02 reads one more file than
+RED. Telemetry is self-reported, and the summary compares one run per scenario.
