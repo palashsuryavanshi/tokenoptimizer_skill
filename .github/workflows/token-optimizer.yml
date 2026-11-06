@@ -1,0 +1,92 @@
+name: Token Optimizer CI Gate
+
+on:
+  push:
+    branches: [main, feat/*]
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  scan:
+    name: Scan for verbose patterns
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: "pip"
+
+      - name: Install token-optimizer-hook
+        run: |
+          pip install -e ./token-optimizer/hook
+
+      - name: Run token-optimizer scan
+        id: scan
+        run: |
+          token-optimizer scan --severity warning --output github --max-violations 100 || true
+
+      - name: Comment on PR (if violations)
+        if: github.event_name == 'pull_request' && steps.scan.outcome == 'failure'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const { data: comments } = await github.rest.issues.listComments({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.payload.pull_request.number
+            });
+            
+            const botComment = comments.find(c => c.user.type === 'Bot' && c.body.includes('Token Optimizer CI Gate'));
+            const body = `## Token Optimizer CI Gate Results
+            
+            ⚠️ **Verbose patterns detected** - These may waste tokens in agent outputs.
+            
+            Run locally to see details:
+            \`\`\`bash
+            pip install -e ./token-optimizer/hook
+            token-optimizer scan --severity warning
+            \`\`\``;
+            
+            if (botComment) {
+              await github.rest.issues.updateComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                comment_id: botComment.id,
+                body
+              });
+            } else {
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: context.payload.pull_request.number,
+                body
+              });
+            }
+
+  test:
+    name: Run tests
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: "pip"
+
+      - name: Install dependencies
+        run: |
+          pip install -e ./token-optimizer/hook[dev]
+
+      - name: Run hook tests
+        run: |
+          python -m pytest tests/hook/ -v

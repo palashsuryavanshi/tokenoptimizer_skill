@@ -537,6 +537,76 @@ def cmd_config_reset(args: argparse.Namespace) -> int:
     return 0
 
 
+# --- Scan Command (CI Gate) ---
+
+def cmd_scan(args: argparse.Namespace) -> int:
+    """Scan for verbose patterns."""
+    # Import the scan module
+    import sys
+    sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "ci"))
+    
+    from scan import main as scan_main, PATTERNS, SCAN_EXTENSIONS, should_skip, scan_file, scan_directory, Violation
+    import json
+    from pathlib import Path
+    
+    extensions = None
+    if args.extensions:
+        extensions = set(f".{ext.lstrip('.')}" for ext in args.extensions.split(","))
+    else:
+        extensions = SCAN_EXTENSIONS
+    
+    all_violations = []
+    for path_str in args.paths:
+        path = Path(path_str)
+        if path.is_file():
+            if not should_skip(path) and (extensions is None or path.suffix in extensions):
+                all_violations.extend(scan_file(path))
+        elif path.is_dir():
+            all_violations.extend(scan_directory(path, extensions))
+    
+    # Filter by severity
+    severity_order = {"error": 0, "warning": 1, "info": 2}
+    min_severity = severity_order[args.severity]
+    filtered = [v for v in all_violations if severity_order.get(
+        next((p["severity"] for p in PATTERNS if p["name"] == v.pattern), "warning"), 1) <= min_severity]
+    
+    filtered.sort(key=lambda v: (v.file, v.line))
+    display_violations = filtered[:args.max_violations]
+    truncated = len(filtered) > args.max_violations
+    
+    if args.output == "json":
+        print(json.dumps([
+            {"file": v.file, "line": v.line, "pattern": v.pattern, "message": v.message, "context": v.context}
+            for v in display_violations
+        ], indent=2))
+    elif args.output == "github":
+        for v in display_violations:
+            print(f"::{v.pattern} file={v.file},line={v.line}::{v.message}")
+    else:
+        if not display_violations:
+            print("OK: No verbose patterns detected")
+            return 0
+        
+        print(f"Found {len(filtered)} violation(s)" + (" (truncated)" if truncated else ""))
+        print()
+        
+        current_file = None
+        for v in display_violations:
+            if v.file != current_file:
+                current_file = v.file
+                print(f"\nFILE: {v.file}")
+            
+            severity_icon = {"error": "[ERROR]", "warning": "[WARN]", "info": "[INFO]"}.get(
+                next((p["severity"] for p in PATTERNS if p["name"] == v.pattern), "warning"), "[WARN]"
+            )
+            
+            print(f"  {severity_icon} Line {v.line}: [{v.pattern}] {v.message}")
+            for ctx_line in v.context.split("\n"):
+                print(f"      {ctx_line}")
+    
+    return 1 if filtered else 0
+
+
 # --- TUI Command ---
 
 def cmd_tui(args: argparse.Namespace) -> int:
@@ -597,6 +667,14 @@ def main() -> int:
     
     config_sub.add_parser("reset", help="Reset to default configuration")
     
+    # Scan command (CI gate)
+    scan_parser = subparsers.add_parser("scan", help="Scan for verbose patterns (CI gate)")
+    scan_parser.add_argument("paths", nargs="*", default=["."], help="Paths to scan")
+    scan_parser.add_argument("--extensions", help="Comma-separated file extensions")
+    scan_parser.add_argument("--severity", choices=["error", "warning", "info"], default="warning")
+    scan_parser.add_argument("--output", choices=["text", "json", "github"], default="text")
+    scan_parser.add_argument("--max-violations", type=int, default=50)
+    
     # TUI command
     subparsers.add_parser("tui", help="Launch TUI dashboard")
     
@@ -639,6 +717,9 @@ def main() -> int:
     
     elif args.command == "tui":
         return cmd_tui(args)
+    
+    elif args.command == "scan":
+        return cmd_scan(args)
     
     return 1
 
